@@ -43,7 +43,7 @@ const Fields = struct {
             },
         };
     }
-    fn parse_params(iter: Iterator, allocator: std.mem.Allocator) !?[][]const u8 {
+    fn parse_params(iter: *Iterator, allocator: std.mem.Allocator) !?[][]const u8 {
         var list: std.ArrayList([]const u8) = .empty;
         while (iter.next()) |t| {
             switch (t) {
@@ -135,7 +135,7 @@ pub const Basic = struct {
             .fields = try Fields.parse(iter, allocator),
         };
     }
-    pub fn parse_iter(iter: Iterator, allocator: std.mem.Allocator) Error!Basic {
+    pub fn parse_iter(iter: *Iterator, allocator: std.mem.Allocator) Error!Basic {
         return .{
             .sub_type = switch (iter.peek() orelse return Error.NoSub) {
                 .String => |s| s,
@@ -185,7 +185,7 @@ pub const Message = struct {
             else => return Error.NoMedia,
         }
     }
-    pub fn parse_iter(iter: Iterator, allocator: std.mem.Allocator) Error!Message {
+    pub fn parse_iter(iter: *Iterator, allocator: std.mem.Allocator) Error!Message {
         const body: *Body = try allocator.create(Body);
         switch (iter.next() orelse Error.NoMedia) {
             .String => {

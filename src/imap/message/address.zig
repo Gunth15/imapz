@@ -7,7 +7,7 @@ mailbox: ?[]const u8,
 host: ?[]const u8,
 
 const Address = @This();
-pub fn parse(iter: Iterator) error.BadAddress!Address {
+pub fn parse(iter: *Iterator) error.BadAddress!Address {
     switch (iter.next() orelse return error.BadAddress) {
         .OpenList => {
             const addr: @This() = .{

@@ -11,15 +11,15 @@ pub const Type = union(enum) {
     ListClose,
 };
 
-pub fn split(buffer: []const u8) Iterator {
+pub inline fn split(buffer: []const u8) Iterator {
     return .{ .buffer = buffer, .index = 0 };
 }
 
-pub fn first(self: *Iterator) ?Type {
+pub inline fn first(self: *Iterator) ?Type {
     std.debug.assert(self.index.? == 0);
     return self.next().?;
 }
-pub fn peek(self: *Iterator) ?Type {
+pub inline fn peek(self: *Iterator) ?Type {
     var start = self.index orelse return null;
     while (start < self.buffer.len and self.buffer[start] == ' ') start += 1;
     if (start >= self.buffer.len) return null;
@@ -38,7 +38,7 @@ pub fn peek(self: *Iterator) ?Type {
     }
     return .{ .Atom = self.buffer[start..] };
 }
-pub fn next(self: *Iterator) ?Type {
+pub inline fn next(self: *Iterator) ?Type {
     const start = self.index orelse return null;
     const buff = self.peek();
     const consumed = switch (buff orelse return null) {
@@ -54,22 +54,22 @@ pub fn next(self: *Iterator) ?Type {
 
     return buff;
 }
-pub fn reset(self: *Iterator) ?Type {
+pub inline fn reset(self: *Iterator) ?Type {
     self.index = 0;
 }
-pub fn rest(self: *Iterator) ?Type {
+pub inline fn rest(self: *Iterator) ?Type {
     const end = self.buffer.len;
     const start = self.index orelse end;
     return .{ .String = self.buffer[start..end] };
 }
 
-fn find_end_string(self: *Iterator, index: usize) ?usize {
+inline fn find_end_string(self: *Iterator, index: usize) ?usize {
     for (index + 1..self.buffer.len) |i| {
         if (self.buffer[i] == '\"') return i + 1;
     }
     return null;
 }
-fn find_end_atom(self: *Iterator, index: usize) usize {
+inline fn find_end_atom(self: *Iterator, index: usize) usize {
     var i: usize = index + 1;
     while (i < self.buffer.len) : (i += 1) {
         switch (self.buffer[i]) {
