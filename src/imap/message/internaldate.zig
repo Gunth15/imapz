@@ -25,7 +25,7 @@ pub fn from(str: []const u8) !InternalDate {
         .zone = z,
     };
 }
-inline fn month_cvrt(month: []const u8) !u8 {
+fn month_cvrt(month: []const u8) !u8 {
     if (std.mem.eql(u8, month, "Jan")) return 1;
     if (std.mem.eql(u8, month, "Feb")) return 2;
     if (std.mem.eql(u8, month, "Mar")) return 3;

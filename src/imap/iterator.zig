@@ -54,13 +54,20 @@ pub inline fn next(self: *Iterator) ?Type {
 
     return buff;
 }
+
+pub inline fn string(self: *Iterator) error{ExpectedString}![]const u8 {
+    return switch (self.next() orelse return error.ExpectedString) {
+        .String => |s| s,
+        else => error.ExpectedString,
+    };
+}
 pub inline fn reset(self: *Iterator) ?Type {
     self.index = 0;
 }
-pub inline fn rest(self: *Iterator) ?Type {
+pub inline fn rest(self: *Iterator) []const u8 {
     const end = self.buffer.len;
     const start = self.index orelse end;
-    return .{ .String = self.buffer[start..end] };
+    return self.buffer[start..end];
 }
 
 inline fn find_end_string(self: *Iterator, index: usize) ?usize {

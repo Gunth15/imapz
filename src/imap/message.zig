@@ -2,7 +2,7 @@ const std = @import("std");
 const Iterator = @import("iterator.zig");
 const Envelope = @import("message/envelope.zig");
 const InternalDate = @import("message/internaldate.zig");
-const msg_body = @import("message/body.zig");
+const body = @import("message/body.zig");
 
 const Message = union(enum) {
     FETCH: FetchedMessage,
@@ -30,8 +30,8 @@ const Message = union(enum) {
                     //TODO: handle possible errors
                     if (std.mem.eql(u8, atom, "RFC822.SIZE")) msg.size = try std.fmt.parseInt(u64, atom, 10);
                     if (std.mem.eql(u8, atom, "BODY") or std.mem.eql(u8, atom, "BODYSTRUCTURE")) {
-                        msg.body = try msg_body.Body.parse_iter(iter, allocator);
                         //"BODY" ["STRUCTURE"] SP body
+                        msg.body = try body.body.parse_iter(iter, allocator);
                         //"BODY" section ["<" number ">"] SP nstring
                     }
                     //"BINARY" section-binary SP (nstring / literal8)
@@ -46,6 +46,7 @@ const Message = union(enum) {
         }
         return .{ .FETCH = msg };
     }
+    fn parse_section() ?[]const u8 {}
 };
 
 pub const FetchedMessage = struct {
@@ -61,12 +62,12 @@ pub const FetchedMessage = struct {
     envelope: Envelope,
     body: union(enum) {
         Multi: struct {
-            parts: []msg_body.Body,
+            parts: []body.BodyStructure,
             //FIXME: This is not right type
             extension: ?[]const u8,
         },
         //FIXME: Add extnesion to body
-        Single: msg_body.Body,
+        Single: body.BodyStructure,
     },
 };
 

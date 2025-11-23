@@ -2,13 +2,15 @@
 //! you are making an executable, the convention is to delete this file and
 //! start with main.zig instead.
 pub const ImapSession = @import("imap/session.zig");
-const std = @import("std");
-const testing = std.testing;
 
 pub export fn add(a: i32, b: i32) i32 {
     return a + b;
 }
 
-test "basic add functionality" {
-    try testing.expect(add(3, 7) == 10);
+test {
+    _ = .{
+        @import("imap/iterator.zig"),
+        @import("imap/message/envelope.zig"),
+        @import("imap/message/address.zig"),
+    };
 }

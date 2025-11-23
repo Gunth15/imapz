@@ -39,13 +39,13 @@ const ImapError = enum {
     InvalidState,
 };
 
-pub fn connect(address: []const u8) Client {}
-pub fn auth(user: []const u8, pass: []const u8) Client {}
-pub fn upgrade(self: *Client, hostname: []const u8) !void {
-    const tls = try Tls.init();
-    try tls.upgrade_conn(self.conn, hostname);
-    //TODO: handle deinitializing upgraded connection
-}
+//pub fn connect(address: []const u8) Client {}
+//pub fn auth(user: []const u8, pass: []const u8) Client {}
+//pub fn upgrade(self: *Client, hostname: []const u8) !void {
+//    const tls = try Tls.init();
+//    try tls.upgrade_conn(self.conn, hostname);
+//    //TODO: handle deinitializing upgraded connection
+//}
 pub fn deinit(self: *Client) void {
     //TODO: handle secure connection
     self.conn.close();
@@ -88,11 +88,11 @@ const CmdCompletion = union(enum) {
     done: Responses.Done,
     data: ?Responses.Data,
 };
-pub fn complete(self: *Client, promise: command.Pending) !CmdCompletion {
-    //TODO: DELETE after fetching
-    const tagged = try self.responses.get_response_tag(promise.tag);
-    const data = try self.responses.get_responses_untagged(.{ .untagged = promise.untaggaged }, self.allocator);
-}
+//pub fn complete(self: *Client, promise: command.Pending) !CmdCompletion {
+//    //TODO: DELETE after fetching
+//    const tagged = try self.responses.get_response_tag(promise.tag);
+//    const data = try self.responses.get_responses_untagged(.{ .untagged = promise.untaggaged }, self.allocator);
+//}
 //Most commands are only valid in certain states
 //It is a protocol error for client to attempt command in inappropriate state(server should respond with BAD or NO)
 
@@ -217,4 +217,4 @@ pub inline fn authenticate(c: *Client) !command.Pending {
 //LOGIN command uses a traditional user name and
 //plaintext password pair and has no means of establishing privacy
 //protection or integrity checking
-pub inline fn login(c: *Client) !command.Pending {}
+//pub inline fn login(c: *Client) !command.Pending {}

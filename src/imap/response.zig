@@ -30,20 +30,20 @@ pub const Continue = struct { resp_text_code: ?[]u8, text: []const u8 };
 pub const Done = struct { tag: Tag, status: Status, resp_code: ?[]const u8, text: []const u8 };
 
 pub const Data = union(enum) {
- //response-data   = "*" SP (resp-cond-state / resp-cond-bye /
- //                  mailbox-data / message-data / capability-data /
- //                  enable-data) CRLF
-//resp-cond-state = ("OK" / "NO" / "BAD") SP resp-text
-//                   ; Status condition
-//resp-cond-bye   = "BYE" SP resp-text
-//
-    .STATE = []const u8,
-    .BYE = []const u8,
-    .MAILBOX,
-    .MESSAGE,
-    .CAPABILITY,
-    .ENABLE,
-    pub fn parse() !void{}
+    //response-data   = "*" SP (resp-cond-state / resp-cond-bye /
+    //                  mailbox-data / message-data / capability-data /
+    //                  enable-data) CRLF
+    //resp-cond-state = ("OK" / "NO" / "BAD") SP resp-text
+    //                   ; Status condition
+    //resp-cond-bye   = "BYE" SP resp-text
+    //
+    STATE: []const u8,
+    BYE: []const u8,
+    MAILBOX,
+    MESSAGE,
+    CAPABILITY,
+    ENABLE,
+    pub fn parse() !void {}
 };
 
 const Type = enum { DONE, CONTINUE, DATA };
@@ -206,13 +206,13 @@ fn parse_status(data: []const u8) !Status {
 }
 
 //Make some dumb test
-test "parse done response" {
-    const response = try parse_respone("* 23 FETCH (FLAGS (\Seen \Answered) UID 482 ENVELOPE (\"Mon, 30 Sep 2024 10:15:42 -0500\" \"Meeting Reminder\" ((\"Alice Example\" NIL \"alice\" \"example.com\")) ((\"Alice Example\" NIL \"alice\" \"example.com\")) ((\"Alice Example\" NIL \"alice\" \"example.com\")) ((\"Bob Example\" NIL \"bob\" \"example.org\")) NIL NIL NIL \"<msgid123@example.com>\"))");
-    response.DATA.state.untagged
-}
-test "parse data response" {
-    parse_respone(resp: []const u8)
-}
-test "parse continue response" {
-    parse_respone(resp: []const u8)
-}
+//test "parse done response" {
+//    const response = try parse_respone("* 23 FETCH (FLAGS (\Seen \Answered) UID 482 ENVELOPE (\"Mon, 30 Sep 2024 10:15:42 -0500\" \"Meeting Reminder\" ((\"Alice Example\" NIL \"alice\" \"example.com\")) ((\"Alice Example\" NIL \"alice\" \"example.com\")) ((\"Alice Example\" NIL \"alice\" \"example.com\")) ((\"Bob Example\" NIL \"bob\" \"example.org\")) NIL NIL NIL \"<msgid123@example.com>\"))");
+//    response.DATA.state.untagged;
+//}
+//test "parse data response" {
+//    parse_respone(resp: []const u8)
+//}
+//test "parse continue response" {
+//    parse_respone(resp: []const u8)
+//}
