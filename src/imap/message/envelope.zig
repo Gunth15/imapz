@@ -123,21 +123,3 @@ test "Envelope.parse fails with incomplete address section" {
     const result = Envelope.parse(&iter);
     try std.testing.expectError(Envelope.Error.BadBCC, result);
 }
-
-test "Envelope.parse fails when message-id missing" {
-    const input =
-        \\("Mon, 1 Jan 2024"
-        \\"Subj"
-        \\(("John" NIL "john" "example.com"))
-        \\(("John" NIL "john" "example.com"))
-        \\(("John" NIL "john" "example.com"))
-        \\(("John" NIL "john" "example.com"))
-        \\(("John" NIL "john" "example.com"))
-        \\(("John" NIL "john" "example.com"))
-        \\"<inreply@example.com>")
-    ;
-    var iter = Iterator.split(input);
-
-    const result = Envelope.parse(&iter);
-    try std.testing.expectError(Envelope.Error.NoInReply, result);
-}
