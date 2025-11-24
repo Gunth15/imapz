@@ -16,7 +16,7 @@ cc: ?Address,
 bcc: ?Address,
 in_reply_to: ?[]const u8,
 message_id: ?[]const u8,
-const Error = error{ NoOpen, NoDate, NoSubject, NoFrom, NoSender, NoReply, NoTo, NoCC, NoBCC, NoInReply, NoMessageId, BadFrom, BadSender, BadReply, BadTo, BadCC, BadBCC };
+pub const Error = error{ NoOpen, NoDate, NoSubject, NoFrom, NoSender, NoReply, NoTo, NoCC, NoBCC, NoInReply, NoMessageId, BadFrom, BadSender, BadReply, BadTo, BadCC, BadBCC };
 pub fn parse(iter: *Iterator) Error!Envelope {
     switch (iter.next() orelse return Error.NoMessageId) {
         .ListOpen => return .{

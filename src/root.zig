@@ -12,5 +12,6 @@ test {
         @import("imap/iterator.zig"),
         @import("imap/message/envelope.zig"),
         @import("imap/message/address.zig"),
+        @import("imap/message/body.zig"),
     };
 }

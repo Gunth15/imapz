@@ -11,29 +11,29 @@ const Fields = struct {
     octets: u32,
 
     const FormatError = error{ NoParamDelimeter, NoMD5, NoId, NoDesc, NoEncoding, NoOctets, InvalidOctetCount };
-    pub fn parse(str: []const u8, allocator: std.mem.Allocator) !Fields {
+    pub fn parse(str: []const u8, arena: std.mem.Allocator) !Fields {
         var iter = Iterator.split(str);
         //body-fields     = body-fld-param SP body-fld-id SP body-fld-desc SP
         //                     body-fld-enc SP body-fld-octets
         const params = switch (iter.first() orelse return FormatError.NoParamDelimeter) {
-            .ListOpen => try parse_params(&iter, allocator),
+            .ListOpen => try parse_params(&iter, arena),
             else => return FormatError.NoParamDelimeter,
         };
         return .{
             //NOTE: Atoms are assumed to be NIL b/c they are nstrings
             .params = params,
             .id = switch (iter.next() orelse return FormatError.NoId) {
-                .String => |s| s,
+                .String => |s| s[1 .. s.len - 1],
                 .Atom => null,
                 else => return FormatError.NoId,
             },
             .desc = switch (iter.next() orelse return FormatError.NoDesc) {
-                .String => |s| s,
+                .String => |s| s[1 .. s.len - 1],
                 .Atom => null,
                 else => return FormatError.NoDesc,
             },
             .encoding = switch (iter.next() orelse return FormatError.NoEncoding) {
-                .String => |s| s,
+                .String => |s| s[1 .. s.len - 1],
                 else => return FormatError.NoEncoding,
             },
             .octets = switch (iter.next() orelse return FormatError.NoOctets) {
@@ -42,11 +42,11 @@ const Fields = struct {
             },
         };
     }
-    pub fn parseIter(iter: *Iterator, allocator: std.mem.Allocator) !Fields {
+    pub fn parseIter(iter: *Iterator, arena: std.mem.Allocator) !Fields {
         //body-fields     = body-fld-param SP body-fld-id SP body-fld-desc SP
         //                     body-fld-enc SP body-fld-octets
         const params = switch (iter.next() orelse return FormatError.NoParamDelimeter) {
-            .ListOpen => try parse_params(iter, allocator),
+            .ListOpen => try parse_params(iter, arena),
             else => return FormatError.NoParamDelimeter,
         };
         return .{
@@ -72,22 +72,19 @@ const Fields = struct {
             },
         };
     }
-    fn parse_params(iter: *Iterator, allocator: std.mem.Allocator) !?[][]const u8 {
+    fn parse_params(iter: *Iterator, arena: std.mem.Allocator) !?[][]const u8 {
         var list: std.ArrayList([]const u8) = .empty;
         while (iter.next()) |t| {
             switch (t) {
                 .String => |s| {
-                    try list.append(allocator, s);
+                    try list.append(arena, s[1 .. s.len - 1]);
                 },
                 .Atom => return null,
-                .ListClose => return try list.toOwnedSlice(allocator),
+                .ListClose => return try list.toOwnedSlice(arena),
                 else => return FormatError.NoParamDelimeter,
             }
         }
         return FormatError.NoParamDelimeter;
-    }
-    pub fn deinit(self: *const Fields, allocator: std.mem.Allocator) void {
-        if (self.params != null) allocator.free(self.params.?);
     }
 };
 
@@ -98,31 +95,24 @@ pub const BodyStructure = union(enum) {
 
     //NOTE: only allocates memory when body-type-msg contains a body.
     //FIXME: Handle null case
-    pub fn parse(str: []const u8, allocator: std.mem.Allocator) !BodyStructure {
+    pub fn parse(str: []const u8, arena: std.mem.Allocator) !BodyStructure {
         var iter = Iterator.split(str);
         const media_type = switch (iter.peek().?) {
             .String => |s| s,
             else => return error.NoMedia,
         };
-        if (std.mem.eql(u8, media_type, "MESSAGE")) return .{ .Msg = try Message.parse(str, allocator) };
-        if (std.mem.eql(u8, media_type, "TEXT")) return .{ .Text = try Text.parse(str, allocator) };
-        return .{ .Basic = try Basic.parse(str, allocator) };
+        if (std.mem.eql(u8, media_type, "MESSAGE")) return .{ .Msg = try Message.parse(str, arena) };
+        if (std.mem.eql(u8, media_type, "TEXT")) return .{ .Text = try Text.parse(str, arena) };
+        return .{ .Basic = try Basic.parse(str, arena) };
     }
-    pub fn parse_iter(iter: *Iterator, allocator: std.mem.Allocator) !BodyStructure {
+    pub fn parse_iter(iter: *Iterator, arena: std.mem.Allocator) !BodyStructure {
         const media_type = switch (iter.peek().?) {
             .String => |s| s,
             else => return error.NoMedia,
         };
-        if (std.mem.eql(u8, media_type, "MESSAGE")) return .{ .Msg = try Message.parse(iter.rest(), allocator) };
-        if (std.mem.eql(u8, media_type, "TEXT")) return .{ .Text = try Text.parse(iter.rest(), allocator) };
-        return .{ .Basic = Basic.parse(iter.rest(), allocator) };
-    }
-    pub fn deinit(self: *BodyStructure, allocator: std.mem.Allocator) void {
-        switch (self.*) {
-            .Basic => |b| b.deinit(allocator),
-            .Msg => |m| m.deinit(allocator),
-            .Text => |t| t.deinit(allocator),
-        }
+        if (std.mem.eql(u8, media_type, "MESSAGE")) return .{ .Msg = try Message.parse(iter.rest(), arena) };
+        if (std.mem.eql(u8, media_type, "TEXT")) return .{ .Text = try Text.parse(iter.rest(), arena) };
+        return .{ .Basic = try Basic.parse(iter.rest(), arena) };
     }
 };
 
@@ -149,8 +139,9 @@ pub const Basic = struct {
     pub const Error = error{
         NoSub,
         NoMedia,
+        BadFieldsFormat,
     };
-    pub fn parse(str: []const u8, allocator: std.mem.Allocator) !Basic {
+    pub fn parse(str: []const u8, arena: std.mem.Allocator) !Basic {
         var iter = Iterator.split(str);
         return .{
             .sub_type = switch (iter.first().?) {
@@ -162,10 +153,10 @@ pub const Basic = struct {
                 .String => |s| s,
                 else => return Error.NoMedia,
             },
-            .fields = try Fields.parseIter(&iter, allocator),
+            .fields = Fields.parseIter(&iter, arena) catch return Error.BadFieldsFormat,
         };
     }
-    pub fn parse_iter(iter: *Iterator, allocator: std.mem.Allocator) !Basic {
+    pub fn parse_iter(iter: *Iterator, arena: std.mem.Allocator) !Basic {
         return .{
             .sub_type = switch (iter.peek() orelse return Error.NoSub) {
                 .String => |s| s,
@@ -176,11 +167,8 @@ pub const Basic = struct {
                 .String => |s| s,
                 else => return Error.NoMedia,
             },
-            .fields = try Fields.parseIter(iter, allocator),
+            .fields = Fields.parseIter(iter, arena) catch return Error.BadFieldsFormat,
         };
-    }
-    pub fn deinit(self: *const Basic, allocator: std.mem.Allocator) void {
-        self.fields.deinit(allocator);
     }
 };
 
@@ -193,49 +181,52 @@ pub const Message = struct {
     fields: Fields,
     envelope: Envelope,
     body: *BodyStructure,
-    field_lines: u32,
+    field_lines: u64,
 
-    pub const Error = error{ NoMedia, NoFieldLines };
-    pub fn parse(str: []const u8, allocator: std.mem.Allocator) !Message {
+    pub const Error = error{
+        NoMedia,
+        BadFieldLines,
+        UnabletoAllocateBody,
+        BadFieldsFormat,
+        BadEnvelopeFormat,
+        BadBodyFormat,
+    };
+    pub fn parse(str: []const u8, arena: std.mem.Allocator) Error!Message {
         var iter = Iterator.split(str);
-        const body: *BodyStructure = try allocator.create(BodyStructure);
+        const body: *BodyStructure = arena.create(BodyStructure) catch return Error.UnabletoAllocateBody;
         switch (iter.first().?) {
             .String => {
-                const fields = try Fields.parseIter(&iter, allocator);
-                const envelope = try Envelope.parse(&iter);
-                body.* = try BodyStructure.parse_iter(&iter, allocator);
+                const fields = Fields.parseIter(&iter, arena) catch return Error.BadFieldLines;
+                const envelope = Envelope.parse(&iter) catch return Error.BadEnvelopeFormat;
+                body.* = BodyStructure.parse_iter(&iter, arena) catch return Error.BadBodyFormat;
                 return .{
                     //TYPE=MESSAGE
                     .fields = fields,
                     .envelope = envelope,
                     .body = body,
-                    .field_lines = iter.next() orelse return Error.NoFieldLines,
+                    .field_lines = std.fmt.parseInt(u64, iter.string() catch return Error.BadFieldLines, 10) catch return Error.BadFieldLines,
                 };
             },
             else => return Error.NoMedia,
         }
     }
-    pub fn parse_iter(iter: *Iterator, allocator: std.mem.Allocator) Error!Message {
-        const body: *BodyStructure = try allocator.create(BodyStructure);
+    pub fn parse_iter(iter: *Iterator, arena: std.mem.Allocator) Error!Message {
+        const body: *BodyStructure = try arena.create(BodyStructure);
         switch (iter.next() orelse Error.NoMedia) {
             .String => {
-                const fields = try Fields.parse(iter, allocator);
+                const fields = try Fields.parse(iter, arena);
                 const envelope = try Envelope.parse(iter);
-                body.* = BodyStructure.parse_iter(iter, allocator);
+                body.* = BodyStructure.parse_iter(iter, arena);
                 return .{
                     //TYPE=MESSAGE
                     .fields = fields,
                     .envelope = envelope,
                     .body = body,
-                    .field_lines = iter.next() orelse return Error.NoFieldLines,
+                    .field_lines = std.fmt.parseInt(u64, iter.string() catch return Error.BadFieldLines, 10) catch return Error.BadFieldLines,
                 };
             },
             else => return Error.NoMedia,
         }
-    }
-    pub fn deinit(self: *const Message, allocator: std.mem.Allocator) void {
-        self.fields.deinit(allocator);
-        self.body.deinit(allocator);
     }
 };
 
@@ -247,10 +238,10 @@ pub const Text = struct {
     //TYPE=TEXT
     sub_type: []const u8,
     fields: Fields,
-    field_lines: u32,
+    field_lines: u64,
 
-    pub const Error = error{ NoSub, NoFieldLines, NoMedia };
-    pub fn parse(str: []const u8, allocator: std.mem.Allocator) !Text {
+    pub const Error = error{ NoSub, NoFieldLines, NoMedia, BadFieldLines };
+    pub fn parse(str: []const u8, arena: std.mem.Allocator) !Text {
         var iter = Iterator.split(str);
         switch (iter.first().?) {
             .String => {
@@ -260,14 +251,14 @@ pub const Text = struct {
                         .String => |s| s,
                         else => return Error.NoSub,
                     },
-                    .fields = try Fields.parseIter(&iter, allocator),
-                    .field_lines = try iter.next() orelse return Error.NoFieldLines,
+                    .fields = try Fields.parseIter(&iter, arena),
+                    .field_lines = std.fmt.parseInt(u64, iter.string() catch return Error.NoFieldLines, 10) catch return Error.BadFieldLines,
                 };
             },
             else => return error.NoMedia,
         }
     }
-    pub fn parse_iter(iter: Iterator, allocator: std.mem.Allocator) Error!Text {
+    pub fn parse_iter(iter: Iterator, arena: std.mem.Allocator) Error!Text {
         switch (iter.next() orelse Error.NoMedia) {
             .String => {
                 return .{
@@ -276,28 +267,26 @@ pub const Text = struct {
                         .String => |s| s,
                         else => return Error.NoSub,
                     },
-                    .fields = try Fields.parse(iter, allocator),
-                    .field_lines = try iter.next() orelse return Error.NoFieldLines,
+                    .fields = try Fields.parse(iter, arena),
+                    .field_lines = std.fmt.parseInt(u64, iter.string() catch return Error.NoFieldLines, 10) catch return Error.BadFieldLines,
                 };
             },
             else => return Error.NoMedia,
         }
     }
-    pub fn deinit(self: *const Text, allocator: std.mem.Allocator) void {
-        self.fields.deinit(allocator);
-    }
 };
 
 test "Fields.parse parses valid fields" {
-    const gpa = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
-    // Example: (( "charset" "utf-8" )) "id123" "desc" "7BIT" 512
+    // Example: ( "charset" "utf-8" ) "id123" "desc" "7BIT" 512
     const input =
-        \\(("charset" "utf-8") "id123" "desc" "7BIT" 512)
+        \\("charset" "utf-8") "id123" "desc" "7BIT" 512
     ;
 
-    const f = try Fields.parse(input, gpa);
-    defer f.deinit(gpa);
+    const f = try Fields.parse(input, allocator);
 
     try std.testing.expect(f.params != null);
     const params = f.params.?;
@@ -312,26 +301,29 @@ test "Fields.parse parses valid fields" {
 }
 
 test "Fields.parse detects missing closing list" {
-    const gpa = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
     const bad_input =
-        \\(("name" "utf-8" "id123" "desc" "7BIT" 512)
+        \\("name" "utf-8" "id123" "desc" "7BIT" 512
         // missing closing parenthesis
     ;
 
-    const result = Fields.parse(bad_input, gpa);
+    const result = Fields.parse(bad_input, allocator);
     try std.testing.expectError(Fields.FormatError.NoParamDelimeter, result);
 }
 
 test "Basic.parse parses simple body type" {
-    const gpa = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
     const input =
         \\("TEXT" "PLAIN" (("charset" "utf-8")) "id42" "desc" "7BIT" 128)
     ;
 
-    const b = try Basic.parse(input, gpa);
-    defer b.deinit(gpa);
+    const b = try Basic.parse(input, allocator);
 
     try std.testing.expectEqualStrings("TEXT", b.sub_type);
     try std.testing.expectEqualStrings("PLAIN", b.type);
@@ -340,14 +332,15 @@ test "Basic.parse parses simple body type" {
 }
 
 test "Body.parse detects message type delegation" {
-    const gpa = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
     const msg_input =
         \\("MESSAGE" "RFC822" (("name" "value")) "id" "desc" "7BIT" 42)
     ;
 
-    const body = try BodyStructure.parse(msg_input, gpa);
-    defer body.deinit(gpa);
+    const body = try BodyStructure.parse(msg_input, allocator);
 
     switch (body) {
         .Msg => {}, // ok
@@ -356,14 +349,15 @@ test "Body.parse detects message type delegation" {
 }
 
 test "Body.parse detects text type delegation" {
-    const gpa = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
     const text_input =
-        \\("TEXT" "PLAIN" (("charset" "utf-8")) "id" "desc" "7BIT" 99)
+        \\("TEXT" "PLAIN" ("charset" "utf-8") "id" "desc" "7BIT" 99)
     ;
 
-    const body = try BodyStructure.parse(text_input, gpa);
-    defer body.deinit(gpa);
+    const body = try BodyStructure.parse(text_input, allocator);
 
     switch (body) {
         .Text => |t| {
@@ -375,14 +369,15 @@ test "Body.parse detects text type delegation" {
 }
 
 test "Body.parse detects basic type fallback" {
-    const gpa = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
     const app_input =
-        \\("APPLICATION" "OCTET-STREAM" (("name" "val")) "id" "desc" "BASE64" 2048)
+        \\("APPLICATION" "OCTET-STREAM" ("name" "val") "id" "desc" "BASE64" 2048)
     ;
 
-    const body = try BodyStructure.parse(app_input, gpa);
-    defer body.deinit(gpa);
+    const body = try BodyStructure.parse(app_input, allocator);
 
     switch (body) {
         .Basic => |b| {
@@ -394,13 +389,15 @@ test "Body.parse detects basic type fallback" {
 }
 
 test "Text.parse detects missing field lines" {
-    const gpa = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
     const bad_input =
-        \\("TEXT" "PLAIN" (("charset" "utf-8")) "id" "desc" "7BIT")
+        \\("TEXT" "PLAIN" ("charset" "utf-8") "id" "desc" "7BIT")
         // missing final octet count
     ;
 
-    const result = Text.parse(bad_input, gpa);
+    const result = Text.parse(bad_input, allocator);
     try std.testing.expectError(Text.Error.NoFieldLines, result);
 }
