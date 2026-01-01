@@ -10,8 +10,8 @@ pub export fn add(a: i32, b: i32) i32 {
 test {
     _ = .{
         @import("imap/iterator.zig"),
-        @import("imap/message/envelope.zig"),
         @import("imap/message/address.zig"),
+        @import("imap/message/envelope.zig"),
         @import("imap/message/body.zig"),
     };
 }
